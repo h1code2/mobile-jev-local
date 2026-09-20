@@ -1,7 +1,7 @@
 // Jev selects source text; it never invents a field value. Explicit --text values take precedence.
-// Whitespace sliding windows cover space-separated goals; script-boundary atoms
-// cover CJK goals, which have no spaces — "使用chrome浏览器打开baidu.com" must still
-// yield "baidu.com" and "chrome" as exact substrings of the goal.
+// Whitespace sliding windows cover space-separated goals. CJK goals have no
+// spaces, so short contiguous Han spans let Jev select "时间" from a goal such
+// as "修改手机时间" without inventing text.
 export function textCandidates(goal, supplied = []) {
   if (supplied.length)
     return { values: [...new Set(supplied)], source: 'supplied', overflow: false };
@@ -21,6 +21,15 @@ export function textCandidates(goal, supplied = []) {
   for (const atom of goal.matchAll(/[A-Za-z0-9][A-Za-z0-9._@:-]*/gu)) {
     values.add(atom[0]);
     if (values.size > 254) return { values: [], source: 'goal', overflow: true };
+  }
+  for (const match of goal.matchAll(/\p{Script=Han}{2,}/gu)) {
+    const chars = [...match[0]];
+    for (let length = 2; length <= Math.min(12, chars.length); length++) {
+      for (let start = 0; start + length <= chars.length; start++) {
+        values.add(chars.slice(start, start + length).join(''));
+        if (values.size > 254) return { values: [], source: 'goal', overflow: true };
+      }
+    }
   }
   return { values: [...values], source: 'goal', overflow: false };
 }

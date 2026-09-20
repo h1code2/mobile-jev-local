@@ -84,7 +84,7 @@ Android's `input text` only synthesizes ASCII; Chinese, accented Latin, or emoji
 adb install ADBKeyboard.apk
 ```
 
-After installation, the agent enables and switches to ADBKeyBoard automatically when non-ASCII text is needed. Without it, non-ASCII `--text` values fail with a clear setup instruction. ASCII-only goals (like `pnpm demo dark-theme`) work with no extra setup.
+After installation, the agent enables and switches to ADBKeyBoard automatically when non-ASCII text is needed. It extracts text candidates such as search terms, dates, and times from a goal; use `--text` only when you need to override or supply a value absent from the goal. Without ADBKeyBoard, non-ASCII input fails with a clear setup instruction. ASCII-only goals (like `pnpm demo dark-theme`) work with no extra setup.
 
 | Directory                      | Purpose                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------ |

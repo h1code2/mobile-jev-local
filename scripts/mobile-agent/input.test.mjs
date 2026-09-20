@@ -38,6 +38,11 @@ test('goal spans include the requested city verbatim and explicit values overrid
     textCandidates(Array.from({ length: 100 }, (_, i) => `word${i}`).join(' ')).overflow,
     true,
   );
+  const chinese = textCandidates('修改手机时间为 北京时间 2026年8月18日 12:53:00');
+  assert.ok(chinese.values.includes('时间'));
+  assert.ok(chinese.values.includes('北京时间'));
+  assert.ok(chinese.values.includes('2026年8月18日'));
+  assert.ok(chinese.values.includes('12:53:00'));
 });
 
 test('visible children survive invisible accessibility containers', () => {
