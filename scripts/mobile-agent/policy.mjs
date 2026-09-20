@@ -25,8 +25,17 @@ export function validateChoice(answer, criteria) {
   return answer;
 }
 
-export function buildQuestions(observation, texts = [], apps = []) {
-  const candidates = candidatesFor(observation, texts);
+function redactModelText(value) {
+  return String(value)
+    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, '[email]')
+    .replace(/\b(?:\d[ -]*?){13,19}\b/g, '[card]')
+    .replace(/(?:\+?\d[\d ()-]{6,}\d)/g, '[phone]')
+    .replace(/\b\d{4,8}\b/g, '[code]')
+    .slice(0, 160);
+}
+
+export function buildQuestions(observation, texts = [], apps = [], { allowRisky = false } = {}) {
+  const candidates = candidatesFor(observation, texts, { allowRisky });
   const elements = [],
     tap = {},
     scroll = {},
@@ -51,9 +60,11 @@ export function buildQuestions(observation, texts = [], apps = []) {
       const node = observation.elements.find((e) => e.id === nodeId);
       elements.push({
         index,
-        label: describeAction({ type: 'tap-element', elementId: nodeId }, observation).replace(
-          /^Tap |\.$/g,
-          '',
+        label: redactModelText(
+          describeAction({ type: 'tap-element', elementId: nodeId }, observation).replace(
+            /^Tap |\.$/g,
+            '',
+          ),
         ),
         editable: node.editable,
         scrollable: node.scrollable,
@@ -156,6 +167,7 @@ export class TypeSafePolicy {
     apiKey = process.env.TYPESAFE_API_KEY,
     model = process.env.TYPESAFE_MODEL || 'jev-latest',
     threshold = 0,
+    allowRisky = false,
     request = pooledRequest,
   } = {}) {
     if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1)
@@ -163,6 +175,7 @@ export class TypeSafePolicy {
     this.apiKey = apiKey;
     this.model = model;
     this.threshold = threshold;
+    this.allowRisky = allowRisky;
     this.request = request;
   }
 
@@ -182,6 +195,7 @@ export class TypeSafePolicy {
       observation,
       textOptions.values,
       namedApps.length ? namedApps : apps,
+      { allowRisky: this.allowRisky },
     );
     for (const question of Object.values(space.questions))
       question.instructions = { goal, rules: question.instructions };
@@ -205,7 +219,6 @@ export class TypeSafePolicy {
               (e) => space.tap[e.index]?.action.elementId === observation.phone.inputElementId,
             )
           : undefined,
-        visibleText: observation.elements.flatMap((e) => [e.text, e.label]).filter(Boolean),
         elements: space.elements,
         availableApps: Object.entries(space.app).map(([index, entry]) => ({
           index,

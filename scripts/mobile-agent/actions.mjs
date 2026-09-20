@@ -1,7 +1,20 @@
-export function candidatesFor(observation, texts = []) {
+const RISKY_CONTROL =
+  /\b(delete|remove|discard|erase|uninstall|send|submit|pay|purchase|buy|order|transfer)\b|删除|移除|清除|卸载|发送|提交|付款|支付|购买|下单|转账/i;
+
+function isRiskyTarget(observation, id) {
+  return observation.elements
+    .filter((node) => node.id === id || node.id.startsWith(id + '.'))
+    .some((node) => RISKY_CONTROL.test(`${node.text} ${node.label} ${node.resourceId}`));
+}
+
+export function candidatesFor(observation, texts = [], { allowRisky = false } = {}) {
   const actions = {};
   for (const node of observation.elements) {
-    if (node.enabled && (node.clickable || node.editable)) {
+    if (
+      node.enabled &&
+      (node.clickable || node.editable) &&
+      (allowRisky || !isRiskyTarget(observation, node.id))
+    ) {
       actions[`tap_${node.id}`] = { type: 'tap-element', elementId: node.id };
     }
   }

@@ -19,6 +19,7 @@ export type Event = {
   latencyMs?: number;
   model?: string;
   outcome?: string;
+  completion?: { modelDeclared: boolean; independentlyVerified: boolean | null };
   reason?: string;
   sequence: number;
 };
@@ -38,7 +39,7 @@ export const isActive = (run: Run | null) =>
 export const statusLabels: Record<string, string> = {
   running: 'In progress',
   stopping: 'Stopping',
-  succeeded: 'Completed',
+  completed_unverified: 'Model-reported complete',
   stopped: 'Stopped',
   blocked: 'Needs attention',
   failed: 'Run failed',

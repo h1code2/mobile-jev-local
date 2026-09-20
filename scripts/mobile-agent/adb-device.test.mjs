@@ -284,6 +284,20 @@ test('assertReady auto-picks a single ready device and rejects several', async (
     run: fakeAdb(new Map([['devices -l', 'ABC\tunauthorized']])),
   });
   await assert.rejects(unauthorized.assertReady(), /unauthorized/);
+  const none = new AdbDevice({
+    run: fakeAdb(new Map([['devices -l', 'List of devices attached\n']])),
+  });
+  await assert.rejects(none.assertReady(), /No ready adb device/);
+});
+
+test('a failed local observation never navigates the device', async () => {
+  const { device, calls, responses } = adbFixture();
+  responses.set('uiautomator dump', 'ERROR: could not get idle state');
+  await assert.rejects(device.observe(), StaleObservationError);
+  assert.equal(
+    calls.some((call) => call.args.join(' ').includes('input keyevent 4')),
+    false,
+  );
 });
 
 test('listApps returns sorted packages with fallback labels', async () => {

@@ -45,6 +45,7 @@ try {
   });
   emit('result', {
     outcome: result.status,
+    completion: result.completion,
     steps: result.steps,
     timings: result.timings,
     reason: result.decision?.reason,

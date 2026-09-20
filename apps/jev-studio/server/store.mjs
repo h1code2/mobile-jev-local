@@ -141,7 +141,7 @@ export function createStore({
         if (run.status === 'stopping') finish('stopped');
         else if (code !== 0 || run.error || !outcome)
           finish('failed', run.error || 'The task process ended unexpectedly.');
-        else finish(outcome === 'done' ? 'succeeded' : 'blocked');
+        else finish(outcome === 'done' ? 'completed_unverified' : 'blocked');
       });
       child.stdin.end(JSON.stringify({ goal: run.goal, maxSteps }));
       return snapshot(id);

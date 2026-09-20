@@ -61,6 +61,10 @@ export async function runAgent({
   let observation = initialObservation;
   const finish = (status, decision) => ({
     status,
+    completion: {
+      modelDeclared: status === 'done',
+      independentlyVerified: null,
+    },
     steps: history.length,
     decision,
     observation,

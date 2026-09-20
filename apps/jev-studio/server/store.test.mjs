@@ -33,7 +33,7 @@ test('timer begins on acceptance and ends only when the process exits; split eve
   assert.equal(store.get(run.id).endedAt, null);
   setTime(4125);
   child.emit('close', 0);
-  assert.equal(store.get(run.id).status, 'succeeded');
+  assert.equal(store.get(run.id).status, 'completed_unverified');
   assert.equal(store.get(run.id).endedAt, 4125);
   setTime(9999);
   child.emit('close', 0);

@@ -56,12 +56,28 @@ async function main() {
     });
     const policy = new TypeSafePolicy({
       request: async (input) => {
-        await record({ event: 'model_request', body: input.body });
+        await record({
+          event: 'model_request',
+          bodyBytes: Buffer.byteLength(JSON.stringify(input.body)),
+        });
         const bytes = await modelRequest(input);
-        await record({ event: 'model_response', body: decodeJson(bytes) });
+        const response = decodeJson(bytes);
+        await record({ event: 'model_response', model: response?.model, usage: response?.usage });
         return bytes;
       },
     });
+    const traceObservation = ({ observation, ...event }) =>
+      record({
+        event: 'observation',
+        ...event,
+        observation: {
+          deviceId: observation.deviceId,
+          fingerprint: observation.fingerprint,
+          phone: { packageName: observation.phone.packageName },
+          screen: observation.screen,
+          elementCount: observation.elements.length,
+        },
+      });
     const execute = (goal, phase) =>
       runAgent({
         device,
@@ -74,8 +90,15 @@ async function main() {
           await record({ event: 'decision', phase, ...decision });
           console.log(`${phase}: ${decision.operation || decision.status} ${decision.label || ''}`);
         },
-        onAction: (action) => record({ event: 'action_executed', phase, ...action }),
-        onObservation: (observation) => record({ event: 'observation', phase, ...observation }),
+        onAction: ({ action, ...event }) =>
+          record({
+            event: 'action_executed',
+            phase,
+            ...event,
+            action: action.type === 'type' ? { ...action, text: '[redacted]' } : action,
+          }),
+        onObservation: ({ observation, ...event }) =>
+          traceObservation({ phase, ...event, observation }),
       });
     let started,
       setupMs = 0;

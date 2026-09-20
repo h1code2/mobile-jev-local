@@ -176,6 +176,38 @@ test('unavailable operations are omitted', () => {
   assert.equal(questions.operation.criteria.SCROLL_DOWN, undefined);
 });
 
+test('risky controls are withheld unless explicitly enabled', () => {
+  const observation = observe();
+  observation.elements.push(node('ui.3', 'Delete account'));
+  const safe = buildQuestions(observation);
+  assert.equal(
+    Object.values(safe.questions.tap_target.criteria).includes('[3] Delete account'),
+    false,
+  );
+  const enabled = buildQuestions(observation, [], [], { allowRisky: true });
+  assert.ok(Object.values(enabled.questions.tap_target.criteria).includes('[3] Delete account'));
+});
+
+test('policy omits redundant raw visible text and redacts sensitive control labels', async () => {
+  const observation = observe();
+  observation.elements.push(node('ui.3', 'Email jane@example.com code 123456'));
+  const policy = new TypeSafePolicy({
+    request: async ({ body }) => {
+      assert.equal('visibleText' in body.state, false);
+      assert.match(
+        body.state.elements.find((element) => element.label.includes('[email]')).label,
+        /\[email\].*\[code\]/,
+      );
+      return Buffer.from(
+        JSON.stringify({
+          answers: { operation: answer(body.questions.operation.criteria, 'DONE') },
+        }),
+      );
+    },
+  });
+  await policy.decide({ goal: 'Check screen', observation });
+});
+
 test('Jev selects a discovered app; exact goal names narrow the inventory', async () => {
   const policy = new TypeSafePolicy({
     request: async ({ body }) => {

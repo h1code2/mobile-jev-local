@@ -35,8 +35,9 @@ Options:
   --settle-ms N                  Extra fixed wait after actions (default 0)
   --wait-timeout-ms N            Consecutive loading wait budget (default 15000)
   --text-completion MODE         accepted (verify locally) or committed (server waits)
+  --allow-risky                  Allow model-selected send, delete, payment, or similar controls
   --execute                      Execute TypeSafe-selected actions
-  --trace PATH                   Save model requests, responses, actions, and final state (JSONL)
+  --trace PATH                   Save redacted timings, decisions, and state metadata (JSONL)
 
 Keys: MOBILERUN_API_KEY (or MOBILERUN_CLOUD_API_KEY); TYPESAFE_API_KEY for run.
 DEVICE_TRANSPORT=adb drives a locally connected device over adb instead of the
@@ -65,6 +66,7 @@ async function main() {
       'settle-ms': { type: 'string', default: '0' },
       'wait-timeout-ms': { type: 'string', default: '15000' },
       'text-completion': { type: 'string' },
+      'allow-risky': { type: 'boolean', default: false },
       text: { type: 'string', multiple: true, default: [] },
     },
   });
@@ -149,17 +151,28 @@ async function main() {
         maxSteps: Number(values.steps),
         settleMs: Number(values['settle-ms']),
         waitTimeoutMs: Number(values['wait-timeout-ms']),
+        allowRisky: values['allow-risky'],
       });
       const result = await runAgent({
         device,
         policy: new TypeSafePolicy({
           threshold: Number(values.confidence),
           request: async (request) => {
-            await record({ event: 'model_request', url: request.url, body: request.body });
+            await record({
+              event: 'model_request',
+              url: request.url,
+              bodyBytes: Buffer.byteLength(JSON.stringify(request.body)),
+            });
             const bytes = await modelRequest(request);
-            await record({ event: 'model_response', body: decodeJson(bytes) });
+            const response = decodeJson(bytes);
+            await record({
+              event: 'model_response',
+              model: response?.model,
+              usage: response?.usage,
+            });
             return bytes;
           },
+          allowRisky: values['allow-risky'],
         }),
         goal: args[0],
         texts: values.text,
@@ -174,14 +187,41 @@ async function main() {
           );
           print({ event: 'decision', ...summary });
         },
-        onAction: async (event) => record({ event: 'action_executed', ...event }),
-        onObservation: async (event) => record({ event: 'observation', ...event }),
+        onAction: async ({ action, ...event }) =>
+          record({
+            event: 'action_executed',
+            ...event,
+            action: action.type === 'type' ? { ...action, text: '[redacted]' } : action,
+          }),
+        onObservation: async ({ observation, ...event }) =>
+          record({
+            event: 'observation',
+            ...event,
+            observation: {
+              deviceId: observation.deviceId,
+              fingerprint: observation.fingerprint,
+              phone: {
+                packageName: observation.phone.packageName,
+                isEditable: observation.phone.isEditable,
+                keyboardVisible: observation.phone.keyboardVisible,
+              },
+              screen: observation.screen,
+              elementCount: observation.elements.length,
+            },
+          }),
       });
-      await record({ event: 'result', ...result });
+      await record({
+        event: 'result',
+        status: result.status,
+        completion: result.completion,
+        steps: result.steps,
+        timings: result.timings,
+      });
       const performanceReport = { timings: result.timings, requests: summarizeMetrics(metrics) };
       await record({ event: 'performance', ...performanceReport });
       print({
         status: result.status,
+        completion: result.completion,
         steps: result.steps,
         timings: result.timings,
         ...(values.trace ? { trace: values.trace } : {}),

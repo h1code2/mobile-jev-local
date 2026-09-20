@@ -163,15 +163,19 @@ export function ActivityPanel({ state }: { state: StudioState }) {
               {!busy && (
                 <div className={`result-row ${run.status}`}>
                   <div>
-                    {run.status === 'succeeded' ? <Check size={18} /> : <Square size={15} />}
+                    {run.status === 'completed_unverified' ? (
+                      <Check size={18} />
+                    ) : (
+                      <Square size={15} />
+                    )}
                   </div>
                   <span>
                     <strong>{statusLabels[run.status]}</strong>
                     <p>
                       {run.error ||
                         run.events.findLast((e) => e.type === 'result')?.reason ||
-                        (run.status === 'succeeded'
-                          ? 'Jev reports the goal is complete. The device is yours.'
+                        (run.status === 'completed_unverified'
+                          ? 'Jev reports the goal is complete. No independent verifier is configured.'
                           : run.status === 'stopped'
                             ? 'The task has stopped. You can start a new goal.'
                             : `The agent stopped: ${(run.outcome || 'unknown').replaceAll('_', ' ')}.`)}

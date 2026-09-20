@@ -457,6 +457,7 @@ export class AdbDevice {
           `Multiple devices are connected (${ready.map((d) => d.id).join(', ')}); set ANDROID_SERIAL.`,
         );
       if (ready.length === 1) this.deviceId = ready[0].id;
+      else throw new Error('No ready adb device is connected. Connect and authorize one device.');
     }
     this.readyAt = performance.now();
     const name = devices.find((d) => d.id === this.deviceId)?.name || this.deviceId || 'device';
@@ -522,18 +523,9 @@ export class AdbDevice {
   }
 
   async observe() {
-    try {
-      return await this.readObservation();
-    } catch (error) {
-      if (!(error instanceof StaleObservationError)) throw error;
-      // Some screens never let the accessibility tree go idle (spinners,
-      // progress bars), so uiautomator can never dump them and every retry
-      // fails identically. Leave that screen with one BACK and read the
-      // restored one; the policy re-plans from there.
-      await this.shell(['input', 'keyevent', String(KEYCODE.back)]);
-      await delay(400);
-      return this.readObservation();
-    }
+    // Observation is strictly read-only. A failed hierarchy dump must never
+    // navigate away from a screen or discard user state.
+    return this.readObservation();
   }
 
   async readObservation() {
@@ -552,7 +544,7 @@ export class AdbDevice {
     return { ...observation, facts };
   }
 
-  // Device-reported ground truth (build, battery, display). Some screens render
+  // Device-reported ground truth. Some screens render
   // this information with never-idling animations that make uiautomator dumps
   // impossible; facts let goals about such values complete from device reports
   // instead of an unreadable rendering of the same data. The policy prompt
@@ -565,27 +557,17 @@ export class AdbDevice {
         'ro.build.version.release',
         'ro.build.version.sdk',
         'ro.build.version.security_patch',
-        'ro.build.display.id',
-        'ro.build.fingerprint',
-        'ro.product.model',
-        'ro.product.brand',
-        'ro.product.device',
         'ro.build.type',
       ],
       { timeoutMs: 10_000 },
     ).catch(() => '');
-    const [release, sdk, securityPatch, displayId, fingerprint, model, brand, device, type] = output
+    const [release, sdk, securityPatch, type] = output
       .split('\n')
       .map((line) => line.replace(/\r$/, '').trim());
     this.facts = {
       androidVersion: release || undefined,
       apiLevel: Number(sdk) || undefined,
       securityPatch: securityPatch || undefined,
-      buildDisplayId: displayId || undefined,
-      fingerprint: fingerprint || undefined,
-      model: model || undefined,
-      brand: brand || undefined,
-      device: device || undefined,
       buildType: type || undefined,
       source: 'device-reported (getprop)',
     };
