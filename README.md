@@ -82,11 +82,9 @@ Android's `input text` only synthesizes ASCII; Chinese, accented Latin, or emoji
 
 ```sh
 adb install ADBKeyboard.apk
-adb shell ime enable com.android.adbkeyboard/.AdbIME
-adb shell ime set com.android.adbkeyboard/.AdbIME
 ```
 
-Without it, non-ASCII `--text` values fail with a clear setup instruction. ASCII-only goals (like `pnpm demo dark-theme`) work with no extra setup.
+After installation, the agent enables and switches to ADBKeyBoard automatically when non-ASCII text is needed. Without it, non-ASCII `--text` values fail with a clear setup instruction. ASCII-only goals (like `pnpm demo dark-theme`) work with no extra setup.
 
 | Directory                      | Purpose                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------ |

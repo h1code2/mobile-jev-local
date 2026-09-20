@@ -713,25 +713,35 @@ export class AdbDevice {
   // Decide the input channel once per action. ADBKeyBoard must be active for
   // non-ASCII text; ASCII rides `input text` unless ADBKeyBoard is already the
   // active IME, because its key events land as letters (select-all once typed
-  // a literal "a" instead of clearing a field). Install with:
-  //   adb install ADBKeyboard.apk
-  //   adb shell ime enable com.android.adbkeyboard/.AdbIME
-  //   adb shell ime set com.android.adbkeyboard/.AdbIME
-  // (Android 12+ also needs `ime enable` before `ime set` accepts it.)
+  // a literal "a" instead of clearing a field). Once installed, the agent
+  // enables and selects it on demand.
   async ensureAdbKeyboard(required) {
-    const enabled = await this.shell(['ime', 'list', '-s'], { timeoutMs: 10_000 }).catch(() => '');
+    const ime = 'com.android.adbkeyboard/.AdbIME';
+    let enabled = await this.shell(['ime', 'list', '-s'], { timeoutMs: 10_000 }).catch(() => '');
     if (!/adbkeyboard/i.test(enabled)) {
-      if (required)
+      if (!required) return false;
+      const installed = await this.shell(['pm', 'path', 'com.android.adbkeyboard'], {
+        timeoutMs: 10_000,
+      }).catch(() => '');
+      if (!installed.trim())
         throw new Error(
-          "Text contains non-ASCII characters, but the ADBKeyBoard IME is not enabled. Run 'adb install ADBKeyboard.apk && adb shell ime enable com.android.adbkeyboard/.AdbIME && adb shell ime set com.android.adbkeyboard/.AdbIME', or provide ASCII-only --text values.",
+          'Text contains non-ASCII characters, but ADBKeyBoard is not installed. Install ADBKeyboard.apk, then retry.',
         );
-      return false;
+      await this.shell(['ime', 'enable', ime]);
+      enabled = await this.shell(['ime', 'list', '-s'], { timeoutMs: 10_000 });
+      if (!/adbkeyboard/i.test(enabled))
+        throw new Error(
+          'ADBKeyBoard could not be enabled. Enable it in Android Settings, then retry.',
+        );
     }
     const active = await this.shell(['settings', 'get', 'secure', 'default_input_method'], {
       timeoutMs: 10_000,
     }).catch(() => '');
     if (/adbkeyboard/i.test(active)) return true;
-    if (required) await this.shell(['ime', 'set', 'com.android.adbkeyboard/.AdbIME']);
+    if (required) {
+      await this.shell(['ime', 'set', ime]);
+      return true;
+    }
     return false;
   }
 

@@ -378,6 +378,31 @@ test('typing without a focused editable field is rejected before any input', asy
   );
 });
 
+test('non-ASCII input enables and selects an installed ADBKeyBoard', async () => {
+  const { device, calls, responses } = adbFixture({ dump: formXml });
+  let enabled = false;
+  responses.set('ime list -s', () => (enabled ? 'com.android.adbkeyboard/.AdbIME\n' : ''));
+  responses.set('pm path com.android.adbkeyboard', 'package:/data/app/ADBKeyboard.apk');
+  responses.set('ime enable com.android.adbkeyboard/.AdbIME', () => {
+    enabled = true;
+    return 'Input method enabled';
+  });
+  responses.set('settings get secure default_input_method', 'com.android.inputmethod/.LatinIME');
+  responses.set('ime set com.android.adbkeyboard/.AdbIME', 'Input method selected');
+  responses.set('am broadcast', 'Broadcast completed');
+  await device.assertReady();
+  await device.act({ type: 'type', text: '北京时间', clear: false });
+  assert.ok(
+    calls.some((call) =>
+      call.args.join(' ').includes('ime enable com.android.adbkeyboard/.AdbIME'),
+    ),
+  );
+  assert.ok(
+    calls.some((call) => call.args.join(' ').includes('ime set com.android.adbkeyboard/.AdbIME')),
+  );
+  assert.ok(calls.some((call) => call.args.join(' ').includes('ADB_INPUT_TEXT')));
+});
+
 test('global navigation, keys, and swipe map to input keyevent/swipe', async () => {
   const { device, calls } = adbFixture();
   await device.assertReady();
