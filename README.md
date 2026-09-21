@@ -52,6 +52,14 @@ Direct controls work too: `pnpm agent tap 300 500`, `pnpm agent type "hello" --c
 - **Safety unchanged**: every dispatch is preceded by a fresh observation, stale decisions are rejected before input, executed actions are logged before the next read, and `accepted` text mode verifies the complete field value locally by re-reading the tree.
 - **Trade-offs vs cloud**: `uiautomator dump` takes ~0.5–2 s per observation (the cloud reads are faster) and can fail on animated screens; the agent's retry budget handles transient dumps. For heavier use, mount an accessibility-service based tree provider later — `AdbDevice` is the only class that would change.
 
+### App compatibility
+
+The agent decides from the UIAutomator accessibility tree, not screenshots. An app or screen is automatable only when its relevant controls expose actionable nodes, text or labels, and screen bounds in `uiautomator dump`.
+
+- Conventional Android settings and native controls usually work well.
+- Facebook, Instagram, and similar apps may work on screens that expose accessibility nodes, but custom-drawn views, video feeds, some WebViews, and intentionally hidden controls may not expose enough information to operate safely.
+- This project has no vision/OCR or screenshot-coordinate fallback. `screenshot` is for human inspection only; a missing UI node is treated as unavailable rather than guessed.
+
 ### Environment
 
 | Variable                              | Purpose                                                               |
@@ -70,7 +78,7 @@ All upstream Mobilerun variables still apply when `DEVICE_TRANSPORT=mobilerun`.
 ## Development
 
 ```sh
-pnpm check       # tests (81), lint, typecheck, formatting, production build
+pnpm check       # tests (85), lint, typecheck, formatting, production build
 pnpm build && pnpm start
 ```
 
